@@ -1,8 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Video Call - 2 Cameras</title>
+  <title>Video Call + Chat</title>
   <style>
+    body {
+      display: flex;
+      flex-direction: row;
+      font-family: sans-serif;
+    }
+    .video-area {
+      flex: 2;
+    }
+    .chat-area {
+      flex: 1;
+      border-left: 2px solid #ccc;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #chat-box {
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid #aaa;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: #f9f9f9;
+    }
+    #chat-box p {
+      margin: 5px 0;
+    }
+    #chat-input {
+      display: flex;
+    }
+    #message {
+      flex: 1;
+      padding: 8px;
+    }
+    #sendBtn {
+      padding: 8px;
+    }
     video {
       width: 320px;
       height: 240px;
@@ -10,34 +47,38 @@
     }
     .video-container {
       display: flex;
-      gap: 20px;
       flex-wrap: wrap;
+      gap: 10px;
     }
     .video-box {
       display: flex;
-      flex-direction: column; 
+      flex-direction: column;
       align-items: center;
     }
   </style>
 </head>
 <body>
-  <h2>Multi-User Video Call</h2>
-  <div id="user-label" style="font-size: 1.2em; color: #007bff; margin-bottom: 10px;"></div>
-  <div class="video-container">
-    <div class="video-box" id="local-video-box">
-      <h3>Your Camera</h3>
-      <video id="localVideo" autoplay muted playsinline></video>
+  <div class="video-area">
+    <h2>Multi-User Video Call</h2>
+    <div class="video-container">
+      <div class="video-box" id="local-video-box">
+        <h3>Your Camera</h3>
+        <video id="localVideo" autoplay muted playsinline></video>
+        <button id="muteBtn">Mute</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-area">
+    <h3>Group Chat</h3>
+    <div id="chat-box"></div>
+    <div id="chat-input">
+      <input type="text" id="message" placeholder="Type your message..." />
+      <button id="sendBtn">Send</button>
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/main.js"></script>
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const user = params.get('user');
-    if (user) {
-      document.getElementById('user-label').textContent = `You are: User ${user}`;
-    }
-  </script>
 </body>
 </html>

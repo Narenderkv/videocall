@@ -3,7 +3,9 @@ const localVideo = document.getElementById('localVideo');
 const videoContainer = document.querySelector('.video-container');
 let localStream;
 const peerConnections = {}; // socketId -> RTCPeerConnection
-
+const messageInput = document.getElementById('message');
+const sendBtn = document.getElementById('sendBtn');
+const chatBox = document.getElementById('chat-box');
 const config = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -15,39 +17,45 @@ const config = {
   ]
 };
 
-// Get user number from URL
-const params = new URLSearchParams(window.location.search);
-const userNumber = params.get('user');
-
 // Step 1: Get local stream
-navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+navigator.mediaDevices.getUserMedia({ video: true, audio: true }) // ✅ enable audio
   .then(stream => {
     localVideo.srcObject = stream;
     localStream = stream;
-    socket.emit('join', userNumber);
+    socket.emit('join');
   })
   .catch(error => {
     console.error('Camera error:', error);
   });
 
-// Keep track of users
+const muteBtn = document.getElementById('muteBtn');
+let isMuted = false;
+
+muteBtn.addEventListener('click', () => {
+  if (localStream && localStream.getAudioTracks().length > 0) {
+    isMuted = !isMuted;
+    localStream.getAudioTracks().forEach(track => {
+      if (track.kind === 'audio') track.enabled = !isMuted;
+    });
+    muteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
+  }
+});
+
 let userList = [];
 
 socket.on('users', (users) => {
   userList = users;
   console.log('[users event] Users:', users);
 
-  // Clean up old videos
   document.querySelectorAll('.video-box').forEach(box => {
     if (box.id !== 'local-video-box') box.remove();
   });
 
-  users.forEach(({ id, userNumber: remoteUserNumber }) => {
-    if (id === socket.id || !remoteUserNumber) return;
+  users.forEach(({ id }) => {
+    if (id === socket.id) return;
 
-    // Start peer connection if not already connected
     if (!peerConnections[id]) {
-      const isInitiator = socket.id < id; // Deterministic initiator logic
+      const isInitiator = socket.id < id;
       startPeerConnection(id, isInitiator);
     }
 
@@ -65,10 +73,18 @@ socket.on('users', (users) => {
       box.id = 'remote-box-' + id;
 
       const label = document.createElement('h3');
-      label.textContent = `Remote Camera (User ${remoteUserNumber})`;
+      label.textContent = `Remote Camera`;
+
+      const muteRemoteBtn = document.createElement('button');
+      muteRemoteBtn.textContent = 'Mute Remote';
+      muteRemoteBtn.onclick = () => {
+        remoteVideo.muted = !remoteVideo.muted;
+        muteRemoteBtn.textContent = remoteVideo.muted ? 'Unmute Remote' : 'Mute Remote';
+      };
 
       box.appendChild(label);
       box.appendChild(remoteVideo);
+      box.appendChild(muteRemoteBtn);
       videoContainer.appendChild(box);
     }
 
@@ -142,3 +158,24 @@ function startPeerConnection(id, isInitiator) {
       });
   }
 }
+
+
+sendBtn.addEventListener('click', sendMessage);
+messageInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendMessage();
+});
+
+function sendMessage() {
+  const text = messageInput.value.trim();
+  if (text === '') return;
+  socket.emit('chat-message', text);
+  messageInput.value = '';
+}
+
+socket.on('chat-message', ({ userNumber, message }) => {
+  const p = document.createElement('p');
+  p.innerHTML = `<strong>User ${userNumber}:</strong> ${message}`;
+  chatBox.appendChild(p);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+
