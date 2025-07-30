@@ -11,37 +11,33 @@ app.set('view engine', 'hbs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// User tracking
 const users = new Set();
 const userNumbers = new Map(); // socket.id -> userNumber
-const userNumberSet = new Set(); // Ensure uniqueness
+const userNumberSet = new Set(); // to avoid duplicate numbers
 
-// Room route
+function generateUniqueUserNumber() {
+  let num = 1;
+  while (userNumberSet.has(num.toString())) {
+    num++;
+  }
+  return num.toString();
+}
+
 app.get('/room', (req, res) => {
   res.render('room');
 });
 
 io.on('connection', socket => {
-  socket.on('join', (userNumber) => {
-    if (!userNumber) {
-      console.log(`[server] Missing userNumber for socket.id=${socket.id}`);
-      socket.emit('error', 'User number required in URL (?user=)');
-      socket.disconnect();
-      return;
-    }
-
-    if (userNumberSet.has(userNumber)) {
-      console.log(`[server] Duplicate userNumber: ${userNumber}`);
-      socket.emit('error', 'User number already in use. Choose a different one.');
-      socket.disconnect();
-      return;
-    }
+  socket.on('join', () => {
+    const userNumber = generateUniqueUserNumber();
 
     userNumbers.set(socket.id, userNumber);
     userNumberSet.add(userNumber);
     users.add(socket.id);
 
     console.log(`[server] User joined: socket.id=${socket.id}, userNumber=${userNumber}`);
+
+    socket.emit('your-number', userNumber);
 
     const userList = Array.from(users).map(id => ({
       id,
@@ -66,7 +62,6 @@ io.on('connection', socket => {
     io.emit('users', userList);
   });
 
-  // WebRTC signaling forwarding
   socket.on('offer', ({ to, offer }) => {
     io.to(to).emit('offer', { from: socket.id, offer });
   });
@@ -77,6 +72,10 @@ io.on('connection', socket => {
 
   socket.on('ice-candidate', ({ to, candidate }) => {
     io.to(to).emit('ice-candidate', { from: socket.id, candidate });
+  });
+  socket.on('chat-message', (message) => {
+    const userNumber = userNumbers.get(socket.id);
+    io.emit('chat-message', { userNumber, message });
   });
 });
 
